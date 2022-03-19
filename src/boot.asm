@@ -15,15 +15,16 @@ mov sp, 0x7c00
 mov si, booting
 call print
 
-xchg bx, bx
-
 mov edi, 0x1000; 读取到目标内存
-mov ecx, 0 ; 起始扇区
-mov bl, 1 ; 读取扇区个数
+mov ecx, 2 ; 起始扇区
+mov bl, 4 ; 读取扇区个数
 
 call read_disk
 
-xchg bx, bx
+cmp word [0x1000], 0x55aa
+jnz error
+
+jmp 0:0x1002
 
 jmp $
 
@@ -116,6 +117,13 @@ print:
 
 booting:
     db "Booting isBest...", 10, 13, 0 ;10 换行 13\r光标移动到开头 0字符串结束
+
+error:
+    mov si, .msg
+    call print
+    hlt
+    jmp $
+    .msg db "Booting Error...", 10, 13, 0
 
 times 510 - ($ - $$) db 0
 
