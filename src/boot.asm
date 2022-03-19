@@ -12,12 +12,95 @@ mov ss, ax
 ; 栈初始化到0x7c00
 mov sp, 0x7c00
 
-xchg bx, bx
-
 mov si, booting
 call print
 
+xchg bx, bx
+
+mov edi, 0x1000; 读取到目标内存
+mov ecx, 0 ; 起始扇区
+mov bl, 1 ; 读取扇区个数
+
+call read_disk
+
+xchg bx, bx
+
 jmp $
+
+read_disk:
+    ;设置读取扇区
+    ;设置读取扇区个数
+    mov dx, 0x1f2
+    mov al, bl
+    out dx, al
+
+    ; 设置起始扇区0-7位
+    inc dx
+    mov al, cl
+    out dx, al
+
+    inc dx
+    shr ecx, 8
+    mov al, cl
+    out dx, al
+
+    inc dx
+    shr ecx, 8
+    mov al, cl
+    out dx, al
+
+    inc dx
+    shr ecx, 8
+    and cl, 0b0000_1111 ; 高四位扇区地址
+    mov al, 0b1110_0000 ; lbr 模式
+    or al, cl
+    out dx, al
+
+    inc dx
+    mov al, 0x20 ; 读
+    out dx, al
+
+    ; 清空ecx
+    xor ecx, ecx
+    ; 读写扇区数量
+    mov cl, bl
+
+    .read:
+        push cx
+        call .waits
+        call .reads
+        pop cx
+        loop .read
+
+    ret
+
+    .waits:
+        mov dx, 0x1f7
+        .check:
+            in al, dx
+            jmp $+2
+            jmp $+2
+            jmp $+2
+            and al, 0b_1000_1000
+            cmp al, 0b_0000_1000
+            jnz .check ; 硬盘繁忙或者数据未准备完毕
+        ret
+
+    .reads:
+        mov dx, 0x1f0
+        mov cx, 256; 一个扇区256word，需要in的次数
+        .readw:
+            in ax, dx
+            jmp $+2
+            jmp $+2
+            jmp $+2
+
+            mov [edi], ax
+            add edi, 2
+
+            loop .readw
+        ret
+
 
 print:
     mov ah, 0x0e
